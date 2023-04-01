@@ -51,7 +51,10 @@ def prepare_train_features(examples: Union[str, List[str], List[List[str]]], tok
             token_end_index = len(input_ids) - 1
             while sequence_ids[token_end_index] != (1 if pad_on_right else 0):
                 token_end_index -= 1
-            if not (offsets[token_start_index][0] <= start_char and offsets[token_end_index][1] >= end_char):
+            if (
+                offsets[token_start_index][0] > start_char
+                or offsets[token_end_index][1] < end_char
+            ):
                 tokenized_examples["start_positions"].append(cls_index)
                 tokenized_examples["end_positions"].append(cls_index)
             else:
@@ -179,7 +182,7 @@ class QuestionAnsweringTrainer(Trainer):
             metrics = {}
 
         for key in list(metrics.keys()):
-            if not key.startswith(f"eval_"):
+            if not key.startswith("eval_"):
                 metrics[f"eval_{key}"] = metrics.pop(key)
 
         self.control = self.callback_handler.on_evaluate(self.args, self.state, self.control, metrics)
@@ -302,7 +305,9 @@ class QuestionAnsweringTrainer(Trainer):
                 null_score = min_null_prediction["score"]
 
             predictions = sorted(prelim_predictions, key=lambda x: x["score"], reverse=True)[:self.args.n_best_size]
-            if self.args.version_2_with_negative and not any(p["offsets"] == (0, 0) for p in predictions):
+            if self.args.version_2_with_negative and all(
+                p["offsets"] != (0, 0) for p in predictions
+            ):
                 predictions.append(min_null_prediction)
 
             context = example["context"]

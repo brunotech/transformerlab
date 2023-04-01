@@ -169,9 +169,7 @@ class MaskedBertModel(MaskedBertPreTrainedModel):
                 extended_attention_mask = attention_mask[:, None, None, :]
         else:
             raise ValueError(
-                "Wrong shape for input_ids (shape {}) or attention_mask (shape {})".format(
-                    input_shape, attention_mask.shape
-                )
+                f"Wrong shape for input_ids (shape {input_shape}) or attention_mask (shape {attention_mask.shape})"
             )
 
         # Since attention_mask is 1.0 for positions we want to attend and 0.0 for
@@ -196,9 +194,7 @@ class MaskedBertModel(MaskedBertPreTrainedModel):
                 encoder_extended_attention_mask = encoder_attention_mask[:, None, None, :]
             else:
                 raise ValueError(
-                    "Wrong shape for encoder_hidden_shape (shape {}) or encoder_attention_mask (shape {})".format(
-                        encoder_hidden_shape, encoder_attention_mask.shape
-                    )
+                    f"Wrong shape for encoder_hidden_shape (shape {encoder_hidden_shape}) or encoder_attention_mask (shape {encoder_attention_mask.shape})"
                 )
 
             encoder_extended_attention_mask = encoder_extended_attention_mask.to(
@@ -241,10 +237,10 @@ class MaskedBertModel(MaskedBertPreTrainedModel):
         sequence_output = encoder_outputs[0]
         pooled_output = self.pooler(sequence_output)
 
-        outputs = (sequence_output, pooled_output,) + encoder_outputs[
-            1:
-        ]  # add hidden_states and attentions if they are here
-        return outputs  # sequence_output, pooled_output, (hidden_states), (attentions)
+        return (
+            sequence_output,
+            pooled_output,
+        ) + encoder_outputs[1:]
 
 # Cell
 class BertEmbeddings(nn.Module):
@@ -428,8 +424,7 @@ class BertLayer(nn.Module):
 
         intermediate_output = self.intermediate(attention_output, threshold=threshold)
         layer_output = self.output(intermediate_output, attention_output, threshold=threshold)
-        outputs = (layer_output,) + outputs
-        return outputs
+        return (layer_output,) + outputs
 
 # Cell
 class BertAttention(nn.Module):
@@ -480,8 +475,7 @@ class BertAttention(nn.Module):
             threshold=threshold,
         )
         attention_output = self.output(self_outputs[0], hidden_states, threshold=threshold)
-        outputs = (attention_output,) + self_outputs[1:]  # add attentions if we output them
-        return outputs
+        return (attention_output,) + self_outputs[1:]
 
 # Cell
 class BertSelfAttention(nn.Module):
@@ -577,8 +571,11 @@ class BertSelfAttention(nn.Module):
         new_context_layer_shape = context_layer.size()[:-2] + (self.all_head_size,)
         context_layer = context_layer.view(*new_context_layer_shape)
 
-        outputs = (context_layer, attention_probs) if self.output_attentions else (context_layer,)
-        return outputs
+        return (
+            (context_layer, attention_probs)
+            if self.output_attentions
+            else (context_layer,)
+        )
 
 # Cell
 class MaskedLinear(nn.Linear):
@@ -618,10 +615,21 @@ class MaskedLinear(nn.Linear):
                 Default: ``topK``
         """
         super(MaskedLinear, self).__init__(in_features=in_features, out_features=out_features, bias=bias)
-        assert pruning_method in ["topK", "threshold", "sigmoied_threshold", "magnitude", "l0"]
+        assert pruning_method in {
+            "topK",
+            "threshold",
+            "sigmoied_threshold",
+            "magnitude",
+            "l0",
+        }
         self.pruning_method = pruning_method
 
-        if self.pruning_method in ["topK", "threshold", "sigmoied_threshold", "l0"]:
+        if self.pruning_method in {
+            "topK",
+            "threshold",
+            "sigmoied_threshold",
+            "l0",
+        }:
             self.mask_scale = mask_scale
             self.mask_init = mask_init
             self.mask_scores = nn.Parameter(torch.Tensor(self.weight.size()))
